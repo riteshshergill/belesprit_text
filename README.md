@@ -2,6 +2,8 @@
 
 This repository implements the **Bel Esprit Framework**, a modular and agent-based system designed to generate, validate, and refine complex AI pipelines. The framework leverages a chain-of-branches approach to decompose large graphs into smaller subgraphs, improving consistency and reducing errors.
 
+For more details, refer to the white paper: [Bel Esprit Framework: Modular AI Pipeline Generation](https://arxiv.org/abs/2412.14684).
+
 ## Goals of the Bel Esprit Framework
 
 The primary goal of the Bel Esprit Framework is to:
