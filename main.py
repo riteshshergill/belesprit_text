@@ -1,67 +1,109 @@
 import streamlit as st
-import json
-from utils.textextractor import Utils  # Import Utils for text extraction
-from builder.pipeline_builder import PipelineBuilder  # Import PipelineBuilder
+from builder.pipeline_builder import PipelineBuilder
+from utils.textextractor import Utils  # Import Utils
 
 # Initialize the PipelineBuilder
 builder = PipelineBuilder()
 
-# Streamlit interface
-st.title("AI Mentalist and Pipeline Builder")
+# Task Classification Function
+def classify_task(user_input):
+    user_input = user_input.lower()
+    if "summarize" in user_input or "summary" in user_input:
+        return "Summarize"
+    elif "what" in user_input or "explain" in user_input or "insight" in user_input:
+        return "Answer Query"
+    elif "translate" in user_input:
+        return "Translate"
+    elif "extract" in user_input:
+        return "Extract Information"
+    elif "generate" in user_input or "create" in user_input:
+        return "Generate Content"
+    else:
+        return "Unknown Task"
 
-# Section 1: User Query Input
-st.subheader("Step 1: Enter Your Query")
-user_query = st.text_area(
-    "Describe your task (e.g., 'Summarize this document').",
-    placeholder="E.g., Summarize the key points of the uploaded document."
-)
+# Step 1: Ask the user for their query
+st.title("Bel Esprit Framework")
+st.subheader("Step 1: What do you want to do?")
+user_input = st.text_area("Enter your task or query:", placeholder="E.g., Summarize the key points of this document.")
 
-# Section 2: File Upload
-st.subheader("Step 2: Upload Document (Optional)")
-uploaded_file = st.file_uploader("Upload a PDF, TXT, or Word document", type=["pdf", "txt", "docx", "rtf"])
 
-# Extract text from the uploaded file if provided
-extracted_text = ""
-if uploaded_file:
-    file_type = uploaded_file.name.split(".")[-1].lower()
-    if file_type == "pdf":
-        extracted_text = Utils.extract_text_from_pdf(uploaded_file)
-    elif file_type in ["docx", "rtf"]:
-        extracted_text = Utils.extract_text_from_word(uploaded_file)
-    elif file_type == "txt":
-        extracted_text = uploaded_file.read().decode("utf-8")
-    st.subheader("Extracted Text:")
-    st.text_area("Text from Uploaded File:", value=extracted_text, height=200)
+# Initialize variables
+task_type = None
+input_language = None
+text_content = None
+output_format = None
 
-# Section 3: Refined Query
-st.subheader("Step 3: Refine Your Query")
-refined_query = st.text_area(
-    "Enter the refined query (based on your task and extracted content):",
-    placeholder="E.g., Summarize the key points of the document and focus on financial insights."
-)
+# Step 2: Automatically classify the task
+if user_input:
+    task_type = classify_task(user_input)
+    st.subheader("Detected Task")
+    st.write(f"The system has classified your task as: **{task_type}**")
+else:
+    task_type = None
 
-# Section 4: Specifications
-st.subheader("Step 4: Specifications")
-default_specifications = {
-    "inputs": [{"name": "Document", "type": "text"}],
-    "outputs": [{"name": "Summary", "type": "text"}]
-}
-specifications = st.text_area(
-    "Enter the extracted specifications (in JSON format):",
-    value=json.dumps(default_specifications, indent=2),
-    height=200
-)
+# Step 3: Ask for the language of the input
+if task_type:
+    st.subheader("Step 2: What is the language of your input?")
+    input_language = st.text_input(
+        "Enter the language of the input text (e.g., English, Spanish, etc.):",
+        placeholder="E.g., English"
+    )
 
-# Generate Pipeline
-if st.button("Generate Pipeline"):
-    try:
-        # Parse the specifications from JSON
-        specs = json.loads(specifications)
+    have_document = "No"
 
-        # Call the PipelineBuilder to generate the pipeline
-        full_pipeline = builder.generate_pipeline(user_query, refined_query, specs)
+    # Step 4: Provide the text content
+    if input_language:
+        st.subheader("Step 3: Do you have a document to process?")
+        if st.button("Yes"):
+            have_document = "Yes"
+        if st.button("No"):
+            have_document = "No"
 
-        st.subheader("Generated Pipeline Graph (JSON):")
-        st.json(full_pipeline)
-    except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.subheader("Step 4: Define the Output Format")
+        output_format = "Answer" if task_type == "Answer Query" else task_type
+
+        st.write(f"Based on your task, the output format will be: **{output_format}**.")
+
+    # Step 6: Build the pipeline
+    if st.button("Build Pipeline"):
+        if task_type and input_language and output_format:
+            # Define specifications
+            specifications = {
+                "inputs": [
+                    {
+                        "name": "Text Content",
+                        "type": "text",
+                        "language": input_language,
+                        "content": text_content
+                    }
+                ],
+                "task": task_type,
+                "outputs": [
+                    {
+                        "name": "Result",
+                        "type": output_format.lower(),
+                        "language": input_language
+                    }
+                ]
+            }
+
+            if have_document == "Yes":
+                specifications["inputs"].append({
+                    "name": "File Upload",
+                    "type": "file",
+                    "language": input_language,
+                })
+
+            # Generate the pipeline
+            full_pipeline = builder.generate_pipeline(
+                user_query=user_input,
+                refined_query=f"Perform {task_type.lower()} on the given {input_language} text and produce a {output_format.lower()} as output.",
+                specifications=specifications
+            )
+
+            st.subheader("Generated Pipeline")
+            st.json(full_pipeline)
+
+            st.success("Pipeline built successfully! You can now execute the pipeline.")
+        else:
+            st.error("Please complete all fields before building the pipeline.")
