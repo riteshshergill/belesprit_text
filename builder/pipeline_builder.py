@@ -16,15 +16,15 @@ class PipelineBuilder:
         """
         pass
 
-    def generate_branch(self, user_query, refined_query, input_node, output_node, existing_nodes, existing_edges):
+    def generate_branch(self, user_query, refined_query, input_spec, output_spec, existing_nodes, existing_edges):
         """
         Generates a single branch of the pipeline graph between the input and output nodes, using the user and refined queries for context.
 
         Args:
             user_query (str): The initial user query.
             refined_query (str): The clarified and refined query.
-            input_node (str): The name of the input node.
-            output_node (str): The name of the output node.
+            input_spec (json): The input node instructions.
+            output_spec (json): The output node instructions.
             existing_nodes (list): List of existing nodes to avoid redundancy.
             existing_edges (list): List of existing edges to avoid redundancy.
 
@@ -34,7 +34,7 @@ class PipelineBuilder:
         # Example pipeline prompt for GPT-4o
         system_message = (
             "You are an AI Pipeline Builder specializing in generating subgraphs (branches) of a larger pipeline. "
-            "Use the provided user query and refined query to guide your pipeline generation."
+            "Use the provided user query, input specifications, output specifications and refined query to guide your pipeline generation."
         )
 
         examples = '''
@@ -42,10 +42,21 @@ class PipelineBuilder:
 
             1. Document Summary:
             User Query: "Summarize the key points of the document."
+            input_spec: {
+                            "name": "Text Content",
+                            "type": "file",
+                            "language": input_language,
+                            "content": "file_content"
+                        }
+            output_spec: {
+                            "name": "Result",
+                            "type": "summarize",
+                            "language": output_language
+                         }
             Pipeline Output:
             {{
             "nodes": [
-                {{"id": "1", "type": "input", "name": "Document", "modality": "text"}},
+                {{"id": "1", "type": "input", "name": "Document", "modality": "file"}},
                 {{"id": "2", "type": "function", "name": "Summarizer", "modality": "text-to-summary"}},
                 {{"id": "3", "type": "output", "name": "Summary", "modality": "text"}}
             ],
@@ -57,10 +68,21 @@ class PipelineBuilder:
 
             2. Specific Query:
             User Query: "What are the revenue trends in the document?"
+            input_spec: {
+                            "name": "Text Content",
+                            "type": "file",
+                            "language": input_language,
+                            "content": "file_content"
+                        }
+            output_spec: {
+                            "name": "Result",
+                            "type": "Answer Query",
+                            "language": input_language
+                         }
             Pipeline Output:
             {{
             "nodes": [
-                {{"id": "1", "type": "input", "name": "Document", "modality": "text"}},
+                {{"id": "1", "type": "input", "name": "Document", "modality": "file"}},
                 {{"id": "2", "type": "function", "name": "Question Answering", "modality": "text-to-answer"}},
                 {{"id": "3", "type": "output", "name": "Answer", "modality": "text"}}
             ],
@@ -71,14 +93,24 @@ class PipelineBuilder:
             }}
 
             3. Section-Specific Query:
-            User Query: "Explain the financials in Section 3."
+            User Query: "Translate the text to French."
+            input_spec: {
+                            "name": "Text Content",
+                            "type": "user_input",
+                            "language": input_language,
+                            "content": "file_content"
+                        }
+            output_spec: {
+                            "name": "Result",
+                            "type": "Translate",
+                            "language": output_language
+                         }
             Pipeline Output:
             {{
             "nodes": [
-                {{"id": "1", "type": "input", "name": "Document", "modality": "text"}},
-                {{"id": "2", "type": "function", "name": "Section Extractor", "parameters": {{"section": "3"}}}},
-                {{"id": "3", "type": "function", "name": "Summarizer", "modality": "text-to-summary"}},
-                {{"id": "4", "type": "output", "name": "Summary of Section 3", "modality": "text"}}
+                {{"id": "1", "type": "input", "name": "UserInput", "modality": "text"}},
+                {{"id": "3", "type": "function", "name": "Translate", "modality": "text-to-translate"}},
+                {{"id": "4", "type": "output", "name": "Translation", "modality": "text"}}
             ],
             "edges": [
                 {{"from": "1", "to": "2"}},
@@ -88,11 +120,23 @@ class PipelineBuilder:
             }}
 
             4. Actionable Query:
-            User Query: "Generate a bar chart of sales figures."
+            User Query: "Generate a bar chart of sales figures for the last 3 months."
+            input_spec: {
+                            "name": "Text Content",
+                            "type": "file",
+                            "language": input_language,
+                            "content": "file_content"
+                        }
+            output_spec: {
+                            "name": "Result",
+                            "type": "Generate Content",
+                            "language": input_language
+                         }
+                         
             Pipeline Output:
             {{
             "nodes": [
-                {{"id": "1", "type": "input", "name": "Document", "modality": "text"}},
+                {{"id": "1", "type": "input", "name": "Document", "modality": "file"}},
                 {{"id": "2", "type": "function", "name": "Data Extractor", "parameters": {{"data_type": "sales figures"}}}},
                 {{"id": "3", "type": "function", "name": "Chart Generator", "parameters": {{"chart_type": "bar"}}}},
                 {{"id": "4", "type": "output", "name": "Bar Chart", "modality": "image"}}
@@ -105,12 +149,12 @@ class PipelineBuilder:
             }}
 
             5. Generate New Content:
-            User Query: "Create a marketing campaign for this product."
+            User Query: "Create a marketing campaign for a product."
             Pipeline Output:
             {{
             "nodes": [
-                {{"id": "1", "type": "input", "name": "Document", "modality": "text"}},
-                {{"id": "2", "type": "function", "name": "Content Generator", "parameters": {{"content_type": "marketing campaign"}}}},
+                {{"id": "1", "type": "input", "name": "UserInput", "modality": "text"}},
+                {{"id": "2", "type": "function", "name": "Content Generator", "parameters": {{"content_type": "description of the product"}}}},
                 {{"id": "3", "type": "output", "name": "Marketing Campaign", "modality": "text"}}
             ],
             "edges": [
@@ -129,8 +173,8 @@ class PipelineBuilder:
 
             Refined Query: {refined_query}
 
-            Input Node: {input_node}
-            Output Node: {output_node}
+            Input Node: {input_spec}
+            Output Node: {output_spec}
 
             Existing Nodes:
             {json.dumps(existing_nodes, indent=2)}

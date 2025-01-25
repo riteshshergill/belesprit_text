@@ -32,6 +32,7 @@ task_type = None
 input_language = None
 text_content = None
 output_format = None
+output_language = None
 
 # Step 2: Automatically classify the task
 if user_input:
@@ -49,15 +50,25 @@ if task_type:
         placeholder="E.g., English"
     )
 
+    output_language = input_language
+
+    if task_type == "Translate":
+        st.subheader("Step 2: What is the language of your output?")
+        output_language = st.text_input(
+            "Enter the language of the output text (e.g., English, Spanish, etc.):",
+            placeholder="E.g., French"
+        )
+
     have_document = "No"
 
     # Step 4: Provide the text content
     if input_language:
         st.subheader("Step 3: Do you have a document to process?")
-        if st.button("Yes"):
-            have_document = "Yes"
-        if st.button("No"):
-            have_document = "No"
+        have_document = st.selectbox(
+            "Select an option",
+            options=["No", "Yes"],
+            index=0
+        )
 
         st.subheader("Step 4: Define the Output Format")
         output_format = "Answer" if task_type == "Answer Query" else task_type
@@ -68,36 +79,50 @@ if task_type:
     if st.button("Build Pipeline"):
         if task_type and input_language and output_format:
             # Define specifications
-            specifications = {
-                "inputs": [
-                    {
-                        "name": "Text Content",
-                        "type": "text",
-                        "language": input_language,
-                        "content": text_content
-                    }
-                ],
-                "task": task_type,
-                "outputs": [
-                    {
-                        "name": "Result",
-                        "type": output_format.lower(),
-                        "language": input_language
-                    }
-                ]
-            }
 
             if have_document == "Yes":
-                specifications["inputs"].append({
-                    "name": "File Upload",
-                    "type": "file",
-                    "language": input_language,
-                })
+                specifications = {
+                    "inputs": [
+                        {
+                            "name": "Text Content",
+                            "type": "file",
+                            "language": input_language,
+                            "content": "file_content"
+                        }
+                    ],
+                    "task": task_type,
+                    "outputs": [
+                        {
+                            "name": "Result",
+                            "type": output_format.lower(),
+                            "language": input_language
+                        }
+                    ]
+                }
+            else:
+                specifications = {
+                    "inputs": [
+                        {
+                            "name": "Text Content",
+                            "type": "text",
+                            "language": input_language,
+                            "content": "user_input"
+                        }
+                    ],
+                    "task": task_type,
+                    "outputs": [
+                        {
+                            "name": "Result",
+                            "type": output_format.lower(),
+                            "language": output_language
+                        }
+                    ]
+                }
 
             # Generate the pipeline
             full_pipeline = builder.generate_pipeline(
                 user_query=user_input,
-                refined_query=f"Perform {task_type.lower()} on the given {input_language} text and produce a {output_format.lower()} as output.",
+                refined_query=f"For the given {task_type.lower()} on the given {specifications} create the pipeline.",
                 specifications=specifications
             )
 
